@@ -7,6 +7,9 @@ echo "Running post-create setup..."
 # Install task-master-ai globally for direct CLI access
 npm install -g task-master-ai
 
+# Install DevContainer CLI for container management
+npm install -g @devcontainers/cli
+
 # Example: Set up custom aliases
 # echo "alias ll='ls -la'" >> ~/.bashrc
 # echo "alias taskmaster='task-master-ai'" >> ~/.bashrc

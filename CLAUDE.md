@@ -38,7 +38,9 @@ The repository contains a main shell script (`create.sh`) that:
 
 ### Lifecycle Hooks
 - **pre-create.sh**: Runs during container creation, handles SSL certificates from `~/.ssl/certs/zscaler.crt`
-- **post-create.sh**: Runs after container is ready, installs task-master-ai globally
+- **post-create.sh**: Runs after container is ready, installs:
+  - task-master-ai globally for MCP functionality
+  - DevContainer CLI for container management
 
 ### MCP Configuration
 - task-master-ai configured with Perplexity API key support
@@ -49,6 +51,22 @@ The repository contains a main shell script (`create.sh`) that:
 - Automatic SSL certificate detection and configuration
 - Configures npm, git, Node.js, and other tools with corporate certs
 - Works seamlessly in both home and office environments
+
+## Requirements
+
+### Host System Requirements
+- **Git** - For cloning repositories
+- **Docker** - For running devcontainers
+- **jq** - For JSON processing (auto-installed by tests if missing)
+- **Node.js/npm** - For installing DevContainer CLI and MCP packages
+
+### For Full Testing
+- **DevContainer CLI** - `npm install -g @devcontainers/cli`
+  - Required for lifecycle execution tests
+  - Auto-installed in created devcontainers
+
+### Optional (Corporate Environments)
+- **SSL Certificate** - Place at `~/.ssl/certs/zscaler.crt` for corporate proxy support
 
 ## Testing Commands
 

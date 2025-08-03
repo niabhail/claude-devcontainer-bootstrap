@@ -121,8 +121,10 @@ templates/
 ## Requirements
 
 - Docker Desktop
-- VS Code with Remote-Containers extension
+- VS Code with Dev Containers extension
 - Git
+- Node.js/npm
+- DevContainer CLI (`npm install -g @devcontainers/cli`) - for testing
 
 ## Troubleshooting
 

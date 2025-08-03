@@ -16,6 +16,9 @@ fi
 PROJECT="$1"
 WORKDIR="${2:-.}"  # Default to current directory if not provided
 
+# Extract just the project name (basename) for use in devcontainer.json
+PROJECT_NAME="$(basename "$PROJECT")"
+
 TEMPLATE_REPO="https://github.com/anthropics/claude-code.git"
 DEVCONTAINER_DIR=".devcontainer"
 MCP_JSON=".mcp.json"
@@ -43,21 +46,29 @@ echo "Customizing devcontainer configuration..."
 
 # 1. Update devcontainer.json settings
 # Set project name
-sed -i "s/\"name\": \"Claude Code Sandbox\"/\"name\": \"$PROJECT\"/" .devcontainer/devcontainer.json
+echo "  - Setting container name from 'Claude Code Sandbox' to '$PROJECT_NAME'"
+sed -i "s/\"name\": \"Claude Code Sandbox\"/\"name\": \"$PROJECT_NAME\"/" .devcontainer/devcontainer.json
 
-# Add port forwarding for Claude CLI OAuth callback (port 54545)
-# This allows claude login to work properly in devcontainer
+# Add port forwarding for Claude CLI OAuth callback (port 54545) and Next.js (port 3000)
+# This allows claude login to work properly in devcontainer and Next.js apps to be accessible
 if ! grep -q "forwardPorts" .devcontainer/devcontainer.json; then
-    sed -i '/"workspaceFolder": "\/workspace",/a\  "forwardPorts": [54545],\n  "portsAttributes": {\n    "54545": {\n      "label": "Claude OAuth",\n      "onAutoForward": "notify",\n      "requireLocalPort": true\n    }\n  },' .devcontainer/devcontainer.json
+    echo "  - Adding port forwarding for ports 3000 (Next.js) and 54545 (Claude OAuth)"
+    sed -i '/"workspaceFolder": "\/workspace",/a\  "forwardPorts": [3000, 54545],\n  "portsAttributes": {\n    "3000": {\n      "label": "Next.js App",\n      "onAutoForward": "openBrowser"\n    },\n    "54545": {\n      "label": "Claude OAuth",\n      "onAutoForward": "ignore",\n      "requireLocalPort": false\n    }\n  },' .devcontainer/devcontainer.json
+else
+    echo "  - Port forwarding already exists, skipping"
 fi
 
 # Add lifecycle hooks - use more specific patterns to avoid duplicates
 # Add onCreateCommand after workspaceFolder (only if not already present)
 if ! grep -q "onCreateCommand" .devcontainer/devcontainer.json; then
+    echo "  - Adding onCreateCommand to run pre-create.sh"
     sed -i '/"workspaceFolder": "\/workspace",/a\  "onCreateCommand": "chmod +x .devcontainer/pre-create.sh \&\& .devcontainer/pre-create.sh",' .devcontainer/devcontainer.json
+else
+    echo "  - onCreateCommand already exists, skipping"
 fi
 
 # Update postCreateCommand to include post-create hook
+echo "  - Updating postCreateCommand to include post-create.sh"
 sed -i 's|"postCreateCommand": "sudo /usr/local/bin/init-firewall.sh"|"postCreateCommand": "sudo /usr/local/bin/init-firewall.sh \&\& chmod +x .devcontainer/post-create.sh \&\& .devcontainer/post-create.sh"|' .devcontainer/devcontainer.json
 
 # Add VS Code extensions - each on its own line for clarity
@@ -88,6 +99,13 @@ if [ -d "$SCRIPT_DIR/templates/init-scripts" ]; then
     echo "  - Adding custom init scripts..."
     cp -r "$SCRIPT_DIR/templates/init-scripts"/* .devcontainer/
     chmod +x .devcontainer/*.sh
+fi
+
+# 4. Copy Claude setup prompts to devcontainer docs
+if [ -f "$SCRIPT_DIR/templates/claude-setup-prompts.md" ]; then
+    echo "  - Adding Claude setup prompts..."
+    mkdir -p .devcontainer/docs
+    cp "$SCRIPT_DIR/templates/claude-setup-prompts.md" .devcontainer/docs/
 fi
 
 echo "Initializing project environment..."
@@ -132,7 +150,7 @@ echo "3. Authenticate Claude Code if required."
 echo "4. MCP servers (task-master-ai, Context7) are pre-configured in $MCP_JSON"
 echo "   - Customize by editing the file if needed"
 echo "   - Restart Claude Code session after any MCP changes"
-echo "5. After login to Claude Code, run the setup prompts from templates/claude-setup-prompts.md"
+echo "5. After login to Claude Code, run the setup prompts from .devcontainer/docs/claude-setup-prompts.md"
 echo "   - Change default model to Sonnet"
 echo "   - Initialize TaskMaster AI with proper configuration"
 echo "   - Set up PRD analysis and development team subagents"

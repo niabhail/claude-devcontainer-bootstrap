@@ -322,7 +322,96 @@ test_env_file() {
     return 0
 }
 
-# Test 6: DevContainer build test (enhanced)
+# Test 6: Lifecycle execution validation
+test_lifecycle_execution() {
+    if ! command -v devcontainer >/dev/null 2>&1; then
+        log_warning "DevContainer CLI not available, skipping lifecycle execution tests"
+        return 0
+    fi
+    
+    log_info "Testing lifecycle script execution..."
+    
+    # Test if Docker is available and running
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker is not running - cannot test lifecycle execution"
+        return 1
+    fi
+    
+    # Build and start container to test lifecycle hooks
+    log_info "Building and starting container to test lifecycle execution..."
+    
+    local build_output
+    if ! build_output=$(devcontainer up --workspace-folder "$PROJECT_PATH" 2>&1); then
+        log_error "Failed to start devcontainer for lifecycle testing"
+        echo "Build output (last 5 lines):"
+        echo "$build_output" | tail -5
+        return 1
+    fi
+    
+    # Test pre-create script execution results
+    log_info "Checking pre-create script results..."
+    
+    # Check if SSL certificate handling worked (if certificate exists)
+    local cert_path="$HOME/.ssl/certs/zscaler.crt"
+    if [ -f "$cert_path" ]; then
+        log_info "SSL certificate exists, checking if pre-create configured it..."
+        
+        # Check if npm was configured with certificate
+        if devcontainer exec --workspace-folder "$PROJECT_PATH" -- npm config get cafile >/dev/null 2>&1; then
+            log_success "npm SSL configuration applied by pre-create script"
+        else
+            log_warning "npm SSL configuration not found - pre-create may not have run"
+        fi
+        
+        # Check if git was configured with certificate
+        if devcontainer exec --workspace-folder "$PROJECT_PATH" -- git config --global --get http.sslCAInfo >/dev/null 2>&1; then
+            log_success "git SSL configuration applied by pre-create script"
+        else
+            log_warning "git SSL configuration not found - pre-create may not have run"
+        fi
+    else
+        log_info "No SSL certificate found, skipping SSL configuration checks"
+    fi
+    
+    # Test post-create script execution results
+    log_info "Checking post-create script results..."
+    
+    # Check if task-master-ai was installed globally
+    if devcontainer exec --workspace-folder "$PROJECT_PATH" -- which task-master-ai >/dev/null 2>&1; then
+        log_success "task-master-ai installed globally by post-create script"
+        
+        # Test if it can execute
+        if devcontainer exec --workspace-folder "$PROJECT_PATH" -- task-master-ai --version >/dev/null 2>&1; then
+            log_success "task-master-ai is functional"
+        else
+            log_warning "task-master-ai installed but may not be functional"
+        fi
+    else
+        log_error "task-master-ai not found - post-create script may have failed"
+        return 1
+    fi
+    
+    # Check if DevContainer CLI was installed globally
+    if devcontainer exec --workspace-folder "$PROJECT_PATH" -- which devcontainer >/dev/null 2>&1; then
+        log_success "DevContainer CLI installed globally by post-create script"
+        
+        # Test if it can execute
+        if devcontainer exec --workspace-folder "$PROJECT_PATH" -- devcontainer --version >/dev/null 2>&1; then
+            log_success "DevContainer CLI is functional"
+        else
+            log_warning "DevContainer CLI installed but may not be functional"
+        fi
+    else
+        log_warning "DevContainer CLI not found - may not be installed by post-create script"
+    fi
+    
+    # Clean up container
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    
+    return 0
+}
+
+# Test 7: DevContainer build test (enhanced)
 test_devcontainer_build() {
     if ! command -v devcontainer >/dev/null 2>&1; then
         log_warning "DevContainer CLI not available, skipping build test"
@@ -396,7 +485,7 @@ test_devcontainer_build() {
     return 0
 }
 
-# Test 7: Lifecycle hooks validation
+# Test 8: Lifecycle hooks validation  
 test_lifecycle_hooks() {
     log_info "Validating lifecycle hooks..."
     
@@ -422,7 +511,7 @@ test_lifecycle_hooks() {
     return 0
 }
 
-# Test 8: VS Code extensions validation
+# Test 9: VS Code extensions validation
 test_vscode_extensions() {
     log_info "Validating VS Code extensions configuration..."
     
@@ -446,7 +535,7 @@ test_vscode_extensions() {
     return 0
 }
 
-# Test 9: SSL certificate handling (if certificate exists)
+# Test 10: SSL certificate handling (if certificate exists)
 test_ssl_certificates() {
     log_info "Testing SSL certificate handling..."
     
@@ -490,10 +579,11 @@ main() {
     run_test "DevContainer Configuration" test_devcontainer_config
     run_test "MCP Configuration" test_mcp_config
     run_test "Environment File" test_env_file
-    run_test "Lifecycle Hooks" test_lifecycle_hooks
+    run_test "Lifecycle Script Execution" test_lifecycle_execution
+    run_test "DevContainer Build" test_devcontainer_build
+    run_test "Lifecycle Hooks Validation" test_lifecycle_hooks
     run_test "VS Code Extensions" test_vscode_extensions
     run_test "SSL Certificate Handling" test_ssl_certificates
-    run_test "DevContainer Build" test_devcontainer_build
     
     echo
     echo "=================================================="
