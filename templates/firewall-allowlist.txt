@@ -1,0 +1,7 @@
+# Add your custom allowed domains here
+# Format: one domain per line
+# Uncomment and modify examples below as needed:
+
+# api.mycompany.com
+# *.internal.corp
+# database.staging.com

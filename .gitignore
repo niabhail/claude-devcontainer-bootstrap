@@ -1,0 +1,45 @@
+# Test artifacts
+/tmp/
+test-*/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+
+# Claude Code settings (contains API keys and personal preferences)
+.claude/
+.claude.json
+claude.json
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Node modules (if any get created during testing)
+node_modules/
+package-lock.json
+yarn.lock
