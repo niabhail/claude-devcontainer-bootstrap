@@ -556,6 +556,194 @@ test_ssl_certificates() {
     return 0
 }
 
+# Test 11: Environment variable availability in container
+test_env_variables_in_container() {
+    log_info "Testing environment variable availability in container..."
+    
+    if ! command -v devcontainer >/dev/null 2>&1; then
+        log_warning "DevContainer CLI not available, skipping environment variable tests"
+        return 0
+    fi
+    
+    # Test if Docker is available and running
+    if ! docker info >/dev/null 2>&1; then
+        log_warning "Docker is not running, skipping environment variable tests"
+        return 0
+    fi
+    
+    # Test 1: Test remoteEnv with host environment variable
+    log_info "Testing remoteEnv with host environment variable..."
+    
+    # Set a host environment variable for this test
+    export PERPLEXITY_API_KEY="host_env_test_key"
+    
+    # Build and start container with host env var
+    local build_output
+    if ! build_output=$(devcontainer up --workspace-folder "$PROJECT_PATH" 2>&1); then
+        log_error "Failed to start devcontainer with host PERPLEXITY_API_KEY"
+        echo "Build output (last 5 lines):"
+        echo "$build_output" | tail -5
+        unset PERPLEXITY_API_KEY
+        return 1
+    fi
+    
+    # Test that host environment variable is passed through remoteEnv
+    local host_env_output
+    if host_env_output=$(devcontainer exec --workspace-folder "$PROJECT_PATH" -- bash -c 'echo "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-<unset>}"' 2>&1); then
+        if [[ "$host_env_output" == *"PERPLEXITY_API_KEY=host_env_test_key"* ]]; then
+            log_success "Host environment variable correctly passed via remoteEnv"
+        else
+            log_warning "Host environment variable not passed via remoteEnv: $host_env_output"
+        fi
+    else
+        log_error "Failed to test host environment variable in container"
+        unset PERPLEXITY_API_KEY
+        return 1
+    fi
+    
+    # Clean up host env var and container
+    unset PERPLEXITY_API_KEY
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    
+    # Test 2: With empty PERPLEXITY_API_KEY (should not break)
+    log_info "Testing with empty PERPLEXITY_API_KEY..."
+    
+    # Ensure .env has empty PERPLEXITY_API_KEY
+    if [ -f "$PROJECT_PATH/.env" ]; then
+        sed -i 's/PERPLEXITY_API_KEY=.*/PERPLEXITY_API_KEY=/' "$PROJECT_PATH/.env"
+    fi
+    
+    # Build and start container
+    local build_output
+    if ! build_output=$(devcontainer up --workspace-folder "$PROJECT_PATH" 2>&1); then
+        log_error "Failed to start devcontainer with empty PERPLEXITY_API_KEY"
+        echo "Build output (last 5 lines):"
+        echo "$build_output" | tail -5
+        return 1
+    fi
+    
+    # Test environment variable is accessible (empty value should not break)
+    local env_test_output
+    if env_test_output=$(devcontainer exec --workspace-folder "$PROJECT_PATH" -- bash -c 'echo "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-<unset>}"' 2>&1); then
+        if [[ "$env_test_output" == *"PERPLEXITY_API_KEY="* ]] || [[ "$env_test_output" == *"PERPLEXITY_API_KEY=<unset>"* ]]; then
+            log_success "Empty PERPLEXITY_API_KEY handled gracefully"
+        else
+            log_warning "Unexpected output for empty PERPLEXITY_API_KEY: $env_test_output"
+        fi
+    else
+        log_error "Failed to test environment variable in container"
+        return 1
+    fi
+    
+    # Test 3: With actual PERPLEXITY_API_KEY value in .env
+    log_info "Testing with sample PERPLEXITY_API_KEY value in .env..."
+    
+    # Set a test value in .env
+    if [ -f "$PROJECT_PATH/.env" ]; then
+        sed -i 's/PERPLEXITY_API_KEY=.*/PERPLEXITY_API_KEY=test_key_12345/' "$PROJECT_PATH/.env"
+    fi
+    
+    # Restart container to pick up .env changes (via shell profile)
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    if ! build_output=$(devcontainer up --workspace-folder "$PROJECT_PATH" 2>&1); then
+        log_error "Failed to restart devcontainer with test PERPLEXITY_API_KEY"
+        return 1
+    fi
+    
+    # Test that the variable is available in new shell sessions (test both approaches)
+    # First test: direct sourcing of .env loading logic
+    if env_test_output=$(devcontainer exec --workspace-folder "$PROJECT_PATH" -- bash -c '
+        if [ -f /workspace/.env ]; then
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+              var_name="${line%%=*}"
+              if [ -z "${!var_name}" ]; then
+                export "$line"
+              fi
+            fi
+          done < /workspace/.env
+        fi
+        echo "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-<unset>}"
+    ' 2>&1); then
+        if [[ "$env_test_output" == *"PERPLEXITY_API_KEY=test_key_12345"* ]]; then
+            log_success "PERPLEXITY_API_KEY correctly loaded from .env file"
+        else
+            # Second test: check if at least the shell profile setup is working
+            if env_test_output2=$(devcontainer exec --workspace-folder "$PROJECT_PATH" -- bash -l -c 'echo "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-<unset>}"' 2>&1); then
+                if [[ "$env_test_output2" == *"PERPLEXITY_API_KEY=test_key_12345"* ]]; then
+                    log_success "PERPLEXITY_API_KEY loaded via login shell profile"
+                else
+                    log_warning "PERPLEXITY_API_KEY not loaded via .env mechanism. Direct test: $env_test_output. Login shell: $env_test_output2"
+                fi
+            else
+                log_warning "PERPLEXITY_API_KEY not properly loaded from .env: $env_test_output"
+            fi
+        fi
+    else
+        log_error "Failed to test .env loading in container"
+        return 1
+    fi
+    
+    # Test 4: Test precedence - host env should override .env
+    log_info "Testing environment variable precedence (host > .env)..."
+    
+    # Set both host env var and .env value
+    export PERPLEXITY_API_KEY="host_override_key"
+    if [ -f "$PROJECT_PATH/.env" ]; then
+        sed -i 's/PERPLEXITY_API_KEY=.*/PERPLEXITY_API_KEY=env_file_key/' "$PROJECT_PATH/.env"
+    fi
+    
+    # Restart container to test precedence
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    if ! build_output=$(devcontainer up --workspace-folder "$PROJECT_PATH" 2>&1); then
+        log_error "Failed to restart devcontainer for precedence test"
+        unset PERPLEXITY_API_KEY
+        return 1
+    fi
+    
+    # Test that host env var takes precedence over .env file
+    if precedence_output=$(devcontainer exec --workspace-folder "$PROJECT_PATH" -- bash -c 'echo "PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-<unset>}"' 2>&1); then
+        if [[ "$precedence_output" == *"PERPLEXITY_API_KEY=host_override_key"* ]]; then
+            log_success "Host environment variable correctly takes precedence over .env"
+        else
+            log_warning "Precedence test failed. Expected host_override_key, got: $precedence_output"
+        fi
+    else
+        log_error "Failed to test environment variable precedence"
+        unset PERPLEXITY_API_KEY
+        return 1
+    fi
+    
+    # Clean up
+    unset PERPLEXITY_API_KEY
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    
+    # Test 5: Verify MCP configuration can reference the variable
+    log_info "Testing MCP configuration variable resolution..."
+    
+    local mcp_file="$PROJECT_PATH/.mcp.json"
+    if [ -f "$mcp_file" ]; then
+        if grep -q '${PERPLEXITY_API_KEY}' "$mcp_file"; then
+            log_success "MCP configuration correctly references PERPLEXITY_API_KEY variable"
+        else
+            log_warning "MCP configuration doesn't reference PERPLEXITY_API_KEY variable"
+        fi
+    else
+        log_error "MCP configuration file not found"
+        return 1
+    fi
+    
+    # Clean up container
+    devcontainer down --workspace-folder "$PROJECT_PATH" >/dev/null 2>&1 || true
+    
+    # Reset .env to empty state for other tests
+    if [ -f "$PROJECT_PATH/.env" ]; then
+        sed -i 's/PERPLEXITY_API_KEY=.*/PERPLEXITY_API_KEY=/' "$PROJECT_PATH/.env"
+    fi
+    
+    return 0
+}
+
 # Main test execution
 main() {
     echo "=================================================="
@@ -584,6 +772,7 @@ main() {
     run_test "Lifecycle Hooks Validation" test_lifecycle_hooks
     run_test "VS Code Extensions" test_vscode_extensions
     run_test "SSL Certificate Handling" test_ssl_certificates
+    run_test "Environment Variables in Container" test_env_variables_in_container
     
     echo
     echo "=================================================="

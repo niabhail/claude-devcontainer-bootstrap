@@ -71,6 +71,30 @@ fi
 echo "  - Updating postCreateCommand to include post-create.sh"
 sed -i 's|"postCreateCommand": "sudo /usr/local/bin/init-firewall.sh"|"postCreateCommand": "sudo /usr/local/bin/init-firewall.sh \&\& chmod +x .devcontainer/post-create.sh \&\& .devcontainer/post-create.sh"|' .devcontainer/devcontainer.json
 
+# Add environment variable handling using safe hybrid approach
+echo "  - Adding safe environment variable support (host > container > .env precedence)"
+# Check if remoteEnv exists and add PERPLEXITY_API_KEY if not already present
+if grep -q '"remoteEnv"' .devcontainer/devcontainer.json; then
+    # remoteEnv exists, check if PERPLEXITY_API_KEY is already there
+    if ! grep -q '"PERPLEXITY_API_KEY"' .devcontainer/devcontainer.json; then
+        # Add PERPLEXITY_API_KEY to existing remoteEnv (before closing brace)
+        sed -i '/"remoteEnv": {/,/}/ { /}/i\    "PERPLEXITY_API_KEY": "${localEnv:PERPLEXITY_API_KEY}",
+        }' .devcontainer/devcontainer.json
+        # Remove trailing comma if it's the last entry
+        sed -i '/"remoteEnv": {/,/}/ { s/,\([[:space:]]*}\)/\1/g }' .devcontainer/devcontainer.json
+        echo "    - Added PERPLEXITY_API_KEY to existing remoteEnv"
+    else
+        echo "    - PERPLEXITY_API_KEY already exists in remoteEnv, skipping"
+    fi
+else
+    # No remoteEnv, add it after containerEnv closing brace
+    sed -i '/},/{
+        N
+        s/},\n  "workspaceMount"/},\n  "remoteEnv": {\n    "PERPLEXITY_API_KEY": "${localEnv:PERPLEXITY_API_KEY}"\n  },\n  "workspaceMount"/
+    }' .devcontainer/devcontainer.json
+    echo "    - Created remoteEnv with PERPLEXITY_API_KEY"
+fi
+
 # Add VS Code extensions - each on its own line for clarity
 sed -i 's|"eamodio.gitlens"|"eamodio.gitlens",\
         "ms-vscode.vscode-typescript-next",\
