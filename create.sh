@@ -94,10 +94,20 @@ echo "Initializing project environment..."
 # Setup .env file
 if [ -f "$SCRIPT_DIR/templates/.env.example" ]; then
     cp "$SCRIPT_DIR/templates/.env.example" .env
-    echo "  - Created .env from template"
+    
+    # Populate PERPLEXITY_API_KEY from host environment if available
+    if [ -n "$PERPLEXITY_API_KEY" ]; then
+        sed -i "s/PERPLEXITY_API_KEY=/PERPLEXITY_API_KEY=$PERPLEXITY_API_KEY/" .env
+        echo "  - Created .env from template and populated PERPLEXITY_API_KEY"
+    else
+        echo "  - Created .env from template (PERPLEXITY_API_KEY not set in host environment)"
+    fi
 else
     touch .env
     echo "# Custom ENV variables can go here" >> .env
+    if [ -n "$PERPLEXITY_API_KEY" ]; then
+        echo "PERPLEXITY_API_KEY=$PERPLEXITY_API_KEY" >> .env
+    fi
 fi
 
 echo "Setting up MCP servers configuration..."
@@ -116,9 +126,7 @@ fi
 echo 'Initial setup complete for: '"$PROJECT"
 echo
 echo "Next steps:"
-echo "1. Optional: Set PERPLEXITY_API_KEY environment variable for enhanced task-master-ai features"
-echo "   - Add to your shell profile: export PERPLEXITY_API_KEY=\"your-key\""
-echo "   - Or add to .env file in the project"
+echo "1. Verify PERPLEXITY_API_KEY is set in .env file for enhanced task-master-ai features"
 echo "2. Open VS Code in this project directory and select 'Reopen in Container' when prompted."
 echo "3. Authenticate Claude Code if required."
 echo "4. MCP servers (task-master-ai, Context7) are pre-configured in $MCP_JSON"
