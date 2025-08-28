@@ -1,7 +1,9 @@
-# Add your custom allowed domains here
-# Format: one domain per line
-# Uncomment and modify examples below as needed:
-
+# firewall-allowlist.txt
+# Domain/IP Egress Allowlist -- critical for secure devcontainer network policy
+# One domain or IP (or CIDR) per line. Lines starting with # are comments.
+# Edit only with approval from your project/network lead.
+#
+# Example:
 # api.mycompany.com
+# 203.0.113.0/24
 # *.internal.corp
-# database.staging.com

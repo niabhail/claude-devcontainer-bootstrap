@@ -1,94 +1,204 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and all users working with code in this repository.
+
+---
 
 ## Repository Overview
 
-This is a Claude Code devcontainer bootstrap project that provides a bash script to quickly set up new projects with Claude Code devcontainer support, optimized for both home and corporate environments.
+This is a Claude Code devcontainer bootstrap project that provides a bash script to quickly scaffold new projects with advanced, feature-driven Claude Code devcontainer support, optimized for both home and corporate environments.
+
+---
 
 ## Commands
 
 ### Create a new project with devcontainer support
+
 ```bash
 ./create.sh <project_name> [workdir]
 ```
 
+- `project_name`: Name for the new project directory
+- `workdir`: (optional) Where to place the new directory. Defaults to the current folder.
+
+---
+
 ## Architecture
 
-The repository contains a main shell script (`create.sh`) that:
-1. Creates a new project directory
-2. Clones the Claude Code devcontainer configuration from the official anthropics/claude-code repository
-3. Customizes the devcontainer with:
-   - Project-specific container name
-   - Lifecycle hooks (pre-create and post-create)
-   - VS Code extensions for TypeScript/JavaScript development
-   - Corporate SSL certificate support
-4. Sets up an `.env` file from template
-5. Configures MCP servers (task-master-ai with Perplexity support, Context7)
-6. Applies firewall allowlist rules
-7. Installs task-master-ai globally for direct CLI access
-8. Provides claude-setup-prompts.md for post-login configuration
+The main shell script (`create.sh`):
+
+1. Creates a new project directory structure.
+2. Populates all recommended config and docs from templates (not from cloning anthropics repo).
+3. Generates a `.devcontainer/devcontainer.json` **from a template**, referencing:
+    - The official Anthropic Claude Code container image.
+    - Modular devcontainer feature for:
+      - Core developer tools (`core-devtools` - includes certificate tools, firewall tools, and dev utilities)
+      - Node.js and VS Code extension support
+4. Generates runtime scripts for workspace-dependent configuration:
+    - Certificate installation script (`setup-certificates.sh`)
+    - Firewall initialization script (`init-firewall.sh`)
+5. Sets up a project-local `.env` based on template and populates critical env vars.
+6. Configures pre-populated MCP servers via `.mcp.json`.
+7. Copies documentation and setup prompts into a top-level `/docs` directory for user onboarding and security (including `firewall-allowlist.txt`, `claude-setup-prompts.md`).
+8. **Uses postCreateCommand for runtime configuration** - certificates and firewall rules are applied after workspace mount when capabilities are available.
+
+---
 
 ## Key Features
 
-### Claude CLI Authentication in Devcontainer
-- Port 54545 is automatically forwarded to allow OAuth callback from browser to devcontainer
-- When running `claude login` inside devcontainer, the browser will redirect to localhost:54545/callback
-- This port forwarding ensures the authentication flow completes successfully
+### Hybrid Build-Time + Runtime Architecture
 
-### Lifecycle Hooks
-- **pre-create.sh**: Runs during container creation, handles SSL certificates from `~/.ssl/certs/zscaler.crt`
-- **post-create.sh**: Runs after container is ready, installs:
-  - task-master-ai globally for MCP functionality
-  - DevContainer CLI for container management
+- **Build-time preparation**: The `core-devtools` feature installs all system tools (certificate management, firewall tools, development utilities) during container build.
+- **Runtime configuration**: Certificate installation and firewall rule application happen via `postCreateCommand` after workspace files are mounted and container has proper capabilities.
+- **Clean separation**: Eliminates build-time vs workspace-file timing conflicts while maintaining security and functionality.
 
-### MCP Configuration
-- task-master-ai configured with Perplexity API key support
-- Uses claude-code/sonnet model by default
-- Manual setup required via templates/claude-setup-prompts.md after login
+### Corporate Certificate Support
 
-### Corporate Environment Support
-- Automatic SSL certificate detection and configuration
-- Configures npm, git, Node.js, and other tools with corporate certs
-- Works seamlessly in both home and office environments
+- Automatic detection and installation of corporate CA certificates during bootstrap.
+- Runtime certificate installation configures system trust store, npm, git, and shell environment variables.
+- Supports Zscaler and other corporate proxy certificates with graceful fallback when certificates are not present.
+
+### Network Policy Enforcement
+
+- Outbound network rules are enforced using iptables/ipset, powered by project-specific `/docs/firewall-allowlist.txt`.
+- Firewall rules applied at runtime via `postCreateCommand` when container has NET_ADMIN capabilities.
+- Every domain/IP your devcontainer can reach must be declared and permitted, supporting robust security and compliance.
+- The egress allowlist is fully version-controlled and auditable in each project.
+
+### Consolidated Developer Tools
+
+- All development tools (certificate management, firewall tools, `task-master-ai`, `@devcontainers/cli`, git-delta, npm CLIs, shell aliases) are provided via the single `core-devtools` feature.
+- Projects can enable or disable any sub-component via feature options.
+- Node.js, TypeScript, and other runtime support is included via standard devcontainer features.
+
+---
+
+## Template System
+
+### Script Templates
+- `templates/scripts/setup-certificates.sh` - Runtime certificate installation
+- `templates/scripts/init-firewall.sh` - Runtime firewall configuration
+
+### Configuration Templates
+- `templates/devcontainer.json.in` - DevContainer configuration with variable substitution
+- `templates/.env.example` - Environment variables template
+- `templates/mcp-servers.json` - MCP server configuration
+
+### Documentation Templates  
+- `templates/claude-setup-prompts.md` - User onboarding guide
+- `templates/firewall-allowlist.txt` - Network allowlist template
+
+---
+
+## Onboarding & Documentation
+
+**After creating a project:**
+
+- See `/docs/claude-setup-prompts.md` for detailed setup, tips, and post-login Claude configuration.
+- Review and adapt `/docs/firewall-allowlist.txt` for any new network egress needs your project will have.
+- Certificate installation will happen automatically if corporate certificates are detected during bootstrap.
+- Firewall rules will be applied automatically during container startup.
+
+---
 
 ## Requirements
 
 ### Host System Requirements
-- **Git** - For cloning repositories
-- **Docker** - For running devcontainers
-- **jq** - For JSON processing (auto-installed by tests if missing)
-- **Node.js/npm** - For installing DevContainer CLI and MCP packages
+
+- **Git** – For cloning repositories
+- **Docker** – For running devcontainers  
+- **jq** – For JSON processing during bootstrap
+
+### For Corporate Environments
+
+- **Corporate SSL certificate**: Place at `~/.ssl/certs/zscaler.crt`, `~/Downloads/zscaler-root-ca.crt`, or similar common locations before running bootstrap
 
 ### For Full Testing
-- **DevContainer CLI** - `npm install -g @devcontainers/cli`
-  - Required for lifecycle execution tests
-  - Auto-installed in created devcontainers
 
-### Optional (Corporate Environments)
-- **SSL Certificate** - Place at `~/.ssl/certs/zscaler.crt` for corporate proxy support
+- **DevContainer CLI** – `npm install -g @devcontainers/cli`
+  - For validating or debugging devcontainer configuration outside of VS Code
+
+---
 
 ## Testing Commands
 
-When testing changes to the bootstrap:
+### Run complete test suite
+
 ```bash
-# Test project creation
-./create.sh test-project /tmp
+./test-devcontainer.sh
+```
 
-# Verify devcontainer customizations
+### Test project creation
+
+```bash
+./create.sh test-project /tmp 
+```
+
+### Verify devcontainer configuration
+
+```bash
 cat /tmp/test-project/.devcontainer/devcontainer.json
+```
 
-# Check MCP configuration
+### Check generated scripts
+
+```bash
+ls /tmp/test-project/.devcontainer/scripts/
+cat /tmp/test-project/.devcontainer/scripts/setup-certificates.sh
+```
+
+### Check MCP configuration
+
+```bash
 cat /tmp/test-project/.mcp.json
+```
 
-# Test with DevContainer CLI (faster than VS Code)
+### Check docs and allowlist
+
+```bash
+ls /tmp/test-project/docs/
+cat /tmp/test-project/docs/firewall-allowlist.txt
+```
+
+### Test with DevContainer CLI
+
+```sh
 devcontainer build --workspace-folder /tmp/test-project
 devcontainer up --workspace-folder /tmp/test-project
 devcontainer exec --workspace-folder /tmp/test-project -- claude --version
+```
 
-# Run comprehensive test suite
-./test-bootstrap.sh /tmp
+### Clean up test
 
-# Clean up test
+```bash
 rm -rf /tmp/test-project
 ```
+
+---
+
+## Architecture Notes
+
+### Why Hybrid Build-Time + Runtime?
+
+- **DevContainer features run during Docker build** - they cannot access workspace files or require runtime capabilities like NET_ADMIN
+- **Corporate certificates and firewall rules need workspace files and capabilities** - these must run after container starts
+- **Solution**: Features prepare the system (install tools), runtime scripts handle configuration (apply settings)
+
+### PostCreateCommand Coordination
+
+The generated `postCreateCommand` runs two scripts in sequence:
+```bash
+"postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh"
+```
+
+This ensures certificates are installed before firewall rules are applied, and both happen after workspace files are available.
+
+---
+
+## Migrated Architecture from Previous Versions
+
+- **Removed problematic features**: `zscaler-certs` and `egress-control` features that failed during build due to timing conflicts
+- **Consolidated tools**: All system tools now installed via single `core-devtools` feature
+- **Added runtime configuration**: Uses `postCreateCommand` for workspace-dependent operations
+- **Template-based scripts**: Runtime scripts generated from templates during bootstrap for consistency and maintainability
+- **Improved testing**: Comprehensive test suite validates entire bootstrap → build → runtime lifecycle

@@ -1,0 +1,33 @@
+{
+  "id": "core-devtools",
+  "version": "1.0.0",
+  "name": "Core Developer Tools",
+  "description": "Install foundational dev tools and CLI utilities for all projects. Toggle each tool as needed.",
+  "options": {
+    "installTaskMaster": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install task-master-ai globally"
+    },
+    "installDevcontainersCLI": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install @devcontainers/cli globally"
+    },
+    "installGitDelta": {
+      "type": "boolean",
+      "default": false,
+      "description": "Install git-delta"
+    },
+    "addLLAlias": {
+      "type": "boolean",
+      "default": true,
+      "description": "Add ll alias in .bashrc/.zshrc"
+    },
+    "extraNpmPackages": {
+      "type": "string",
+      "default": "",
+      "description": "Additional space-separated npm packages to install globally"
+    }
+  }
+}
