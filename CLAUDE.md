@@ -38,9 +38,9 @@ The main shell script (`create.sh`):
     - Certificate installation script (`setup-certificates.sh`)
     - Firewall initialization script (`init-firewall.sh`)
 5. Sets up a project-local `.env` based on template and populates critical env vars.
-6. Configures pre-populated MCP servers via `.mcp.json`.
+6. Generates conditional MCP server configuration via `.mcp.json` based on feature flags (task-master-ai if enabled, SuperClaude servers if enabled).
 7. Copies documentation and setup prompts into a top-level `/docs` directory for user onboarding and security (including `firewall-allowlist.txt`, `claude-setup-prompts.md`).
-8. **Uses postCreateCommand for runtime configuration** - certificates and firewall rules are applied after workspace mount when capabilities are available.
+8. **Uses postCreateCommand for runtime configuration** - certificates, firewall rules, and SuperClaude framework are configured after workspace mount when capabilities are available.
 
 ---
 
@@ -70,6 +70,79 @@ The main shell script (`create.sh`):
 - All development tools (certificate management, firewall tools, `task-master-ai`, `@devcontainers/cli`, git-delta, npm CLIs, shell aliases) are provided via the single `core-devtools` feature.
 - Projects can enable or disable any sub-component via feature options.
 - Node.js, TypeScript, and other runtime support is included via standard devcontainer features.
+
+### SuperClaude Framework Integration
+
+- **Enhanced Claude Code capabilities**: 19 specialized commands and 9 cognitive personas for advanced development workflows.
+- **Token optimization**: 70% reduction for large projects through intelligent compression and symbol-based communication.
+- **Category-based MCP servers**: Modular selection of Core, UI, and CodeOps server groups based on development needs.
+- **Complete ecosystem**: Full SuperClaude MCP suite (context7, sequential-thinking, magic, playwright, morphllm-fast-apply, serena).
+- **Git-based session management**: Automatic checkpoints and session history for continuity across development sessions.
+- **Developer-focused configuration**: Three simple categories (Core, UI, CodeOps) that map to SuperClaude's internal structure.
+
+### Category-Based MCP Architecture
+
+- **Core Category**: Essential documentation (context7) and reasoning (sequential-thinking) tools for all developers.
+- **UI Category**: Frontend development tools including component generation (magic) and browser testing (playwright).
+- **CodeOps Category**: Code transformation (morphllm-fast-apply) and semantic analysis (serena) plus intelligent agents.
+- **Flexible selection**: Enable only the categories needed for your development workflow.
+- **Full mapping**: Categories map to SuperClaude's actual component and MCP server installation options behind the scenes.
+
+## Configuration Examples
+
+### Default Configuration (All SuperClaude categories enabled)
+```json
+"./features/core-devtools": {
+  "installTaskMaster": false,
+  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
+}
+```
+**Result**: Complete SuperClaude ecosystem with all MCP servers and components.
+
+### Backend Developer Focus
+```json
+"./features/core-devtools": {
+  "installTaskMaster": false,
+  "installSuperClaude": "{\"core\":true,\"ui\":false,\"codeOps\":true}"
+}
+```
+**Result**: Documentation, reasoning, and code transformation tools (no UI components).
+
+### Frontend Developer Focus
+```json
+"./features/core-devtools": {
+  "installTaskMaster": false,
+  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":false}"
+}
+```
+**Result**: Documentation, reasoning, and UI development tools (no heavy code transformation).
+
+### Analysis Only
+```json
+"./features/core-devtools": {
+  "installTaskMaster": false,
+  "installSuperClaude": "{\"core\":true,\"ui\":false,\"codeOps\":false}"
+}
+```
+**Result**: Just documentation and reasoning capabilities for analysis work.
+
+### TaskMaster + SuperClaude Combination
+```json
+"./features/core-devtools": {
+  "installTaskMaster": true,
+  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
+}
+```
+**Result**: Maximum capabilities with both basic task automation and complete SuperClaude ecosystem.
+
+### Minimal Setup (Everything disabled)
+```json
+"./features/core-devtools": {
+  "installTaskMaster": false,
+  "installSuperClaude": "{\"core\":false,\"ui\":false,\"codeOps\":false}"
+}
+```
+**Result**: No MCP servers configured. Pure Claude Code experience.
 
 ---
 
@@ -186,12 +259,12 @@ rm -rf /tmp/test-project
 
 ### PostCreateCommand Coordination
 
-The generated `postCreateCommand` runs two scripts in sequence:
+The generated `postCreateCommand` runs three scripts in sequence:
 ```bash
-"postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh"
+"postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh && bash .devcontainer/scripts/setup-superclaude.sh"
 ```
 
-This ensures certificates are installed before firewall rules are applied, and both happen after workspace files are available.
+This ensures certificates are installed, then firewall rules are applied, and finally SuperClaude framework is configured - all after workspace files are available.
 
 ---
 

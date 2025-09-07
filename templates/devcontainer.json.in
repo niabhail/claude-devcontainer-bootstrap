@@ -4,14 +4,15 @@
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
     "./features/core-devtools": {
-      "installTaskMaster": true,
+      "installTaskMaster": false,
       "installDevcontainersCLI": true,
       "installGitDelta": true,
       "addLLAlias": true,
-      "extraNpmPackages": ""
+      "extraNpmPackages": "",
+      "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
     }
   },
-  "postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh",
+  "postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh && bash .devcontainer/scripts/setup-superclaude.sh",
   "runArgs": [
     "--cap-add=NET_ADMIN", 
     "--cap-add=NET_RAW"
@@ -54,7 +55,11 @@
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
-    "PERPLEXITY_API_KEY": "${localEnv:PERPLEXITY_API_KEY}"
+    "PERPLEXITY_API_KEY": "${localEnv:PERPLEXITY_API_KEY}",
+    "TWENTYFIRST_API_KEY": "${localEnv:TWENTYFIRST_API_KEY}",
+    "MORPH_API_KEY": "${localEnv:MORPH_API_KEY}",
+    "SUPERCLAUDE_ENABLED": "true",
+    "SUPERCLAUDE_TOKEN_OPTIMIZATION": "true"
   },
   "forwardPorts": [3000, 54545],
   "portsAttributes": {

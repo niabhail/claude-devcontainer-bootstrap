@@ -6,7 +6,7 @@
   "options": {
     "installTaskMaster": {
       "type": "boolean",
-      "default": true,
+      "default": false,
       "description": "Install task-master-ai globally"
     },
     "installDevcontainersCLI": {
@@ -28,6 +28,17 @@
       "type": "string",
       "default": "",
       "description": "Additional space-separated npm packages to install globally"
+    },
+    "installSuperClaude": {
+      "type": "string",
+      "description": "SuperClaude framework categories (JSON: {\"core\":true,\"ui\":true,\"codeOps\":true})",
+      "default": "{\"core\":true,\"ui\":true,\"codeOps\":true}",
+      "proposals": [
+        "{\"core\":true,\"ui\":true,\"codeOps\":true}",
+        "{\"core\":true,\"ui\":false,\"codeOps\":false}",
+        "{\"core\":false,\"ui\":true,\"codeOps\":false}",
+        "{\"core\":false,\"ui\":false,\"codeOps\":false}"
+      ]
     }
   }
 }

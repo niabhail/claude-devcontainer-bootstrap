@@ -121,7 +121,7 @@ Projects include egress control via runtime firewall configuration:
 ✅ **Zero Manual Configuration** - Automated build-time + runtime setup  
 ✅ **Corporate Network Ready** - Runtime SSL cert detection and trust  
 ✅ **Security by Default** - Runtime network egress controls and allowlists  
-✅ **MCP Integration** - Pre-configured task-master-ai and Context7 servers  
+✅ **Flexible MCP Integration** - SuperClaude enterprise framework by default, plus support for custom MCP servers  
 ✅ **VS Code Ready** - TypeScript, React, and productivity extensions  
 ✅ **Team Standardization** - Consistent tooling via consolidated features  
 ✅ **Template-Based** - All scripts generated from maintained templates  
@@ -161,31 +161,75 @@ Per-project feature customization in generated `devcontainer.json`:
 {
   "features": {
     "./features/core-devtools": {
-      "taskmaster": true,
-      "devcontainer-cli": false,
-      "git-delta": true,
-      "certificates": true,
-      "firewall": true
+      "installTaskMaster": false,
+      "installDevcontainersCLI": true,
+      "installGitDelta": true,
+      "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}",
+      "addLLAlias": true,
+      "extraNpmPackages": ""
     }
   },
-  "postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh"
+  "postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh && bash .devcontainer/scripts/setup-superclaude.sh"
 }
 ```
 
+**SuperClaude Categories:**
+- **`core`**: Documentation (context7) and reasoning (sequential-thinking)
+- **`ui`**: Component generation (magic) and browser testing (playwright)  
+- **`codeOps`**: Code transformation (morphllm-fast-apply) and semantic analysis (serena)
+
 ### MCP Server Configuration
 
-Edit `templates/mcp-servers.json` for default MCP configurations:
+The bootstrap automatically generates `.mcp.json` with SuperClaude servers by default, which you can customize:
+
+**Default Generated Configuration:**
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "sequential-thinking": {
+      "command": "npx", 
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "magic": {
+      "command": "npx",
+      "args": ["@21st-dev/magic"],
+      "env": {"TWENTYFIRST_API_KEY": "${TWENTYFIRST_API_KEY}"}
+    }
+    // ... additional servers based on your SuperClaude configuration
+  }
+}
+```
+
+**Add Your Own MCP Servers:**
+Edit `.mcp.json` in your project to add custom servers:
 
 ```json
 {
   "mcpServers": {
-    "task-master-ai": {
-      "command": "task-master-ai",
-      "args": ["--perplexity-key", "$PERPLEXITY_API_KEY"]
+    // SuperClaude servers (generated automatically)
+    "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] },
+    
+    // Your custom MCP servers
+    "my-custom-server": {
+      "command": "python",
+      "args": ["/path/to/my-mcp-server.py"],
+      "env": { "API_KEY": "${MY_API_KEY}" }
+    },
+    "database-mcp": {
+      "command": "npx",
+      "args": ["@myorg/database-mcp"],
+      "env": { "DATABASE_URL": "${DATABASE_URL}" }
     }
   }
 }
 ```
+
+**Template Customization:**
+Edit `templates/mcp-servers.json` to change defaults for all new projects.
 
 ## 📋 Post-Creation Workflow
 
@@ -201,125 +245,65 @@ After running the bootstrap script:
 
 ## 🔍 What's Included
 
-### Build-Time Installation (core-devtools feature)
+- **Enterprise AI Framework**: SuperClaude with 6 specialized MCP servers
+- **Corporate Security**: Runtime certificate trust and network egress controls
+- **Developer Tools**: VS Code extensions, git-delta, shell enhancements
+- **Template System**: Consistent project scaffolding and configuration
 
-- Certificate management tools (openssl, ca-certificates)
-- Firewall tools (iptables, ipset, net-tools)
-- Developer tools (task-master-ai, @devcontainers/cli, git-delta)
-- Shell aliases and productivity enhancements
-- Node.js and TypeScript support
+### MCP Server Ecosystem
 
-### Runtime Configuration Scripts
+**Built-in SuperClaude Framework** (Enterprise AI development):
 
-- **setup-certificates.sh**: Corporate certificate trust configuration
-- **init-firewall.sh**: Network egress control and allowlist enforcement
-- Generated from templates for consistency and maintainability
+**Core Category**: Documentation & reasoning
+- **context7**: Up-to-date library documentation and framework patterns
+- **sequential-thinking**: Structured multi-step reasoning and hypothesis testing
 
-### Pre-Configured Extensions
+**UI Category**: Component generation & testing
+- **magic**: Modern UI component generation from 21st.dev patterns
+- **playwright**: Browser automation and E2E testing
 
-- TypeScript and JavaScript development tools
-- Error Lens and Pretty TypeScript Errors
-- Tailwind CSS IntelliSense
-- Path IntelliSense and Auto Rename Tag
-- TODO Tree and Highlight
-- Prisma, YAML, and DotENV support
+**CodeOps Category**: Code transformation & analysis
+- **morphllm-fast-apply**: Pattern-based code editing with token optimization
+- **serena**: Semantic code understanding with project memory
 
-### MCP Servers
+**Optional Additions**:
+- **task-master-ai**: AI-powered task management (when enabled)
 
-- **task-master-ai**: AI-powered task management with Perplexity integration
-- **Context7**: Advanced context and file management
-- Ready for additional custom MCP servers
+**Custom MCP Server Support**:
+- Add any MCP-compatible server to `.mcp.json`
+- Database connectors, API integrations, custom tools
+- Organization-specific MCP servers
+- Community MCP servers from npm registry
+- Python-based MCP servers via uv or pip
+- Local development MCP servers
 
-### Security & Compliance
 
-- Runtime corporate certificate trust (Zscaler, etc.)
-- Network egress controls with allowlist enforcement
-- Version-controlled security policies
-- Audit-ready configuration
-
-## 🧪 Testing & Validation
+## 🧪 Testing
 
 ```bash
 # Run complete test suite
 ./test-devcontainer.sh
 
-# Test project creation
-./create.sh test-project /tmp
-
-# Validate devcontainer config
-cat /tmp/test-project/.devcontainer/devcontainer.json
-
-# Check generated runtime scripts
-ls /tmp/test-project/.devcontainer/scripts/
-cat /tmp/test-project/.devcontainer/scripts/setup-certificates.sh
-
-# Check MCP configuration
-cat /tmp/test-project/.mcp.json
-
-# Check docs and allowlist
-ls /tmp/test-project/docs/
-cat /tmp/test-project/docs/firewall-allowlist.txt
-
-# Test with DevContainer CLI
-devcontainer build --workspace-folder /tmp/test-project
-devcontainer up --workspace-folder /tmp/test-project
-devcontainer exec --workspace-folder /tmp/test-project -- claude --version
-
-# Cleanup
-rm -rf /tmp/test-project
+# Test basic project creation
+./create.sh test-project /tmp && rm -rf /tmp/test-project
 ```
 
-## 🆚 Migration from Previous Versions
-
-**Architecture Changes:**
-
-- **Removed problematic features**: `zscaler-certs` and `egress-control` features that failed during build due to timing conflicts
-- **Consolidated tools**: All system tools now installed via single `core-devtools` feature
-- **Added runtime configuration**: Uses `postCreateCommand` for workspace-dependent operations
-- **Template-based scripts**: Runtime scripts generated from templates during bootstrap
-
-**Migration Benefits:**
-
-- ✅ Eliminates build-time vs workspace-file timing conflicts
-- ✅ More reliable certificate and firewall configuration
-- ✅ Better security with runtime capability management
-- ✅ Easier maintenance with template-based script generation
-- ✅ Comprehensive test suite covering full lifecycle
-- ✅ Corporate compliance with audit-ready configs
 
 ## 🔧 Requirements
 
-### Host System
+- **Git, Docker, jq** – Core dependencies
+- **VS Code** with Dev Containers extension  
+- **Corporate SSL certificate** (if behind corporate proxy)
 
-- **Git** – For cloning repositories
-- **Docker** – For running devcontainers  
-- **jq** – For JSON processing during bootstrap
-- VS Code with Dev Containers extension
+*See full requirements and troubleshooting in the generated `docs/` folder.*
 
-### For Corporate Environments
+## 🐛 Common Issues
 
-- **Corporate SSL certificate**: Place at `~/.ssl/certs/zscaler.crt`, `~/Downloads/zscaler-root-ca.crt`, or similar common locations before running bootstrap
+- **Corporate Network**: Ensure SSL certificate is placed before running `create.sh`
+- **MCP Servers**: Restart Claude Code session after container initialization  
+- **Network Access**: Update `docs/firewall-allowlist.txt` for additional domains
 
-### For Full Testing
-
-- **DevContainer CLI**: `npm install -g @devcontainers/cli` (for testing outside VS Code)
-
-## 🐛 Troubleshooting
-
-**Corporate Network Issues:**
-Ensure your certificate is properly placed before running `create.sh`. The runtime certificate script will automatically detect and configure it during container startup.
-
-**MCP Servers Not Working:**
-Restart your Claude Code session after container initialization. Check `.mcp.json` configuration and environment variables.
-
-**Network Access Blocked:**
-Review and update `docs/firewall-allowlist.txt` in your project. The runtime firewall script enforces strict allowlisting.
-
-**Runtime Scripts Not Executing:**
-Check container logs for postCreateCommand execution. Ensure the container has proper capabilities (NET_ADMIN for firewall rules).
-
-**Build vs Runtime Issues:**
-The hybrid architecture separates build-time tool installation from runtime configuration. If you see timing conflicts, verify that workspace-dependent operations are in runtime scripts, not features.
+*Full troubleshooting guide available in project `docs/` folder.*
 
 ---
 
