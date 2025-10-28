@@ -3,20 +3,25 @@ set -e
 
 echo "Setting up egress control firewall..."
 
-ALLOWLIST_PATH="/workspaces/${LOCAL_WORKSPACE_FOLDER}/docs/firewall-allowlist.txt"
-FALLBACK_ALLOWLIST_PATH="docs/firewall-allowlist.txt"
+# Try to find allowlist file in .devcontainer/docs/
+ALLOWLIST_PATHS=(
+  "/workspaces/${LOCAL_WORKSPACE_FOLDER}/.devcontainer/docs/firewall-allowlist.txt"
+  ".devcontainer/docs/firewall-allowlist.txt"
+  "/workspace/.devcontainer/docs/firewall-allowlist.txt"
+)
 
-# Try to find allowlist file
-if [ -f "$ALLOWLIST_PATH" ]; then
-    ACTIVE_ALLOWLIST="$ALLOWLIST_PATH"
-elif [ -f "$FALLBACK_ALLOWLIST_PATH" ]; then
-    ACTIVE_ALLOWLIST="$FALLBACK_ALLOWLIST_PATH"
-else
+ACTIVE_ALLOWLIST=""
+for path in "${ALLOWLIST_PATHS[@]}"; do
+  if [ -f "$path" ]; then
+    ACTIVE_ALLOWLIST="$path"
+    break
+  fi
+done
+
+if [ -z "$ACTIVE_ALLOWLIST" ]; then
     echo "WARNING: No firewall allowlist found"
     echo "Firewall rules will not be applied"
-    echo "Expected locations:"
-    echo "  - $ALLOWLIST_PATH"
-    echo "  - $FALLBACK_ALLOWLIST_PATH"
+    echo "Expected location: .devcontainer/docs/firewall-allowlist.txt"
     exit 0
 fi
 

@@ -2,7 +2,6 @@
 
 # Global variables
 PROJECT=""
-WORKDIR=""
 PROJECT_NAME=""
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BOOTSTRAP_DIR="$SCRIPT_DIR"
@@ -11,39 +10,65 @@ DEVCONTAINER_PATH=""
 
 # ---- Argument validation and setup ----
 validate_arguments() {
-  if [ -z "$1" ]; then
-    echo "Usage: $0 <project_name> [workdir]"
-    echo "  project_name: Name of the project to create"
-    echo "  workdir: Optional working directory (absolute or relative path)"
-    echo "           If not provided, creates in current directory"
-    echo "Examples:"
-    echo "  $0 myproject                  # Creates ./myproject"
-    echo "  $0 myproject /home/user/work  # Creates /home/user/work/myproject"
-    echo "  $0 myproject ../projects      # Creates ../projects/myproject"
-    exit 1
+  local target="${1:-.}"
+
+  # Handle "." or no argument = current directory
+  if [[ "$target" == "." ]] || [[ -z "$1" ]]; then
+    PROJECT_PATH="$(pwd)"
+    PROJECT_NAME="$(basename "$PROJECT_PATH")"
+    DEVCONTAINER_PATH="$PROJECT_PATH/.devcontainer"
+    echo "📍 Bootstrapping current folder: $PROJECT_NAME"
+  else
+    # Handle absolute or relative paths
+    if [[ "$target" = /* ]]; then
+      PROJECT_PATH="$target"
+    else
+      PROJECT_PATH="$(pwd)/$target"
+    fi
+
+    PROJECT_NAME="$(basename "$PROJECT_PATH")"
+    DEVCONTAINER_PATH="$PROJECT_PATH/.devcontainer"
+
+    # Check if project folder exists
+    if [[ -d "$PROJECT_PATH" ]]; then
+      echo "📂 Found existing folder: $PROJECT_NAME"
+    else
+      echo "🆕 Creating new project: $PROJECT_NAME"
+    fi
   fi
 
-  PROJECT="$1"
-  WORKDIR="${2:-.}"
-  PROJECT_NAME="$(basename "$PROJECT")"
-  PROJECT_PATH="$WORKDIR/$PROJECT"
-  DEVCONTAINER_PATH="$PROJECT_PATH/.devcontainer"
+  # Safety check: does .devcontainer already exist?
+  if [[ -d "$DEVCONTAINER_PATH" ]]; then
+    echo ""
+    echo "⚠️  WARNING: .devcontainer/ already exists in $PROJECT_NAME"
+    echo ""
+    read -p "Overwrite? Existing config will be backed up to .devcontainer.backup (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "❌ Aborted. Existing .devcontainer/ was not modified."
+      exit 0
+    fi
 
-  # Handle relative paths
-  if [[ ! "$WORKDIR" = /* ]]; then
-    WORKDIR="$SCRIPT_DIR/$WORKDIR"
-    PROJECT_PATH="$WORKDIR/$PROJECT"
-    DEVCONTAINER_PATH="$PROJECT_PATH/.devcontainer"
+    # Backup existing .devcontainer
+    local backup_path="${DEVCONTAINER_PATH}.backup.$(date +%Y%m%d-%H%M%S)"
+    mv "$DEVCONTAINER_PATH" "$backup_path"
+    echo "💾 Backed up existing config to: $(basename "$backup_path")"
   fi
 }
 
 # ---- Project structure setup ----
 setup_project_structure() {
-  echo "🚀 Scaffolding new project: $PROJECT in $WORKDIR"
+  echo "🚀 Setting up devcontainer structure..."
+
+  # Create project folder if it doesn't exist
   mkdir -p "$PROJECT_PATH"
-  mkdir -p "$PROJECT_PATH/docs"
+
+  # Create .devcontainer structure (everything contained here)
+  mkdir -p "$DEVCONTAINER_PATH/docs"
   mkdir -p "$DEVCONTAINER_PATH/certs"
   mkdir -p "$DEVCONTAINER_PATH/scripts"
+
+  echo "  ✓ Created compact .devcontainer/ structure"
 }
 
 # ---- Copy local devcontainer features ----
@@ -78,7 +103,7 @@ copy_local_features() {
 generate_mcp_config() {
   echo "⚙️ Generating MCP server configuration..."
   local template_file="$BOOTSTRAP_DIR/templates/mcp-servers.json"
-  local output_file="$PROJECT_PATH/.mcp.json"
+  local output_file="$DEVCONTAINER_PATH/mcp-servers.json"
   
   # Read feature flags from generated devcontainer.json
   local devcontainer_file="$DEVCONTAINER_PATH/devcontainer.json"
@@ -133,22 +158,39 @@ generate_mcp_config() {
   if [[ "$superclaude_enabled" == "true" ]]; then
     echo "  🚀 SuperClaude categories enabled: ${superclaude_servers}"
   fi
-  
-  echo "  ✓ Generated .mcp.json with appropriate MCP servers"
+
+  echo "  ✓ Generated .devcontainer/mcp-servers.json with appropriate MCP servers"
+
+  # Create symlink at project root for Claude Code compatibility
+  local symlink_path="$PROJECT_PATH/.mcp.json"
+  local target_path=".devcontainer/mcp-servers.json"
+
+  if [[ -L "$symlink_path" ]]; then
+    rm "$symlink_path"
+  fi
+
+  (cd "$PROJECT_PATH" && ln -s "$target_path" .mcp.json)
+  echo "  ✓ Created .mcp.json symlink → .devcontainer/mcp-servers.json"
 }
 
 # ---- Copy template files ----
 copy_template_files() {
   echo "📄 Copying configuration templates..."
-  cp "$BOOTSTRAP_DIR/templates/.env.example" "$PROJECT_PATH/.env"
-  cp "$BOOTSTRAP_DIR/templates/claude-setup-prompts.md" "$PROJECT_PATH/docs/"
-  cp "$BOOTSTRAP_DIR/templates/firewall-allowlist.txt" "$PROJECT_PATH/docs/firewall-allowlist.txt"
-  
+
+  # All files go into .devcontainer/ for compact structure
+  cp "$BOOTSTRAP_DIR/templates/.env.example" "$DEVCONTAINER_PATH/.env.example"
+  cp "$BOOTSTRAP_DIR/templates/claude-setup-prompts.md" "$DEVCONTAINER_PATH/docs/claude-setup-prompts.md"
+  cp "$BOOTSTRAP_DIR/templates/firewall-allowlist.txt" "$DEVCONTAINER_PATH/docs/firewall-allowlist.txt"
+
+  echo "  ✓ Copied docs and config to .devcontainer/"
+
   echo "📄 Copying script templates..."
   cp "$BOOTSTRAP_DIR/templates/scripts/setup-certificates.sh" "$DEVCONTAINER_PATH/scripts/setup-certificates.sh"
   cp "$BOOTSTRAP_DIR/templates/scripts/init-firewall.sh" "$DEVCONTAINER_PATH/scripts/init-firewall.sh"
   cp "$BOOTSTRAP_DIR/templates/scripts/setup-superclaude.sh" "$DEVCONTAINER_PATH/scripts/setup-superclaude.sh"
   chmod +x "$DEVCONTAINER_PATH/scripts"/*.sh
+
+  echo "  ✓ Copied runtime scripts to .devcontainer/scripts/"
 }
 
 # ---- Generate devcontainer configuration ----
@@ -196,28 +238,34 @@ setup_certificate_support() {
 # ---- Display completion message ----
 display_completion_message() {
   echo
-  echo "✅ Initial setup complete for: $PROJECT"
+  echo "✅ DevContainer setup complete for: $PROJECT_NAME"
+  echo
+  echo "📦 All configuration is self-contained in .devcontainer/"
+  echo "   - Commit .devcontainer/ to share with team (recommended)"
+  echo "   - Or add to .gitignore for personal use"
+  echo "   - .mcp.json symlink created at root for Claude Code compatibility"
   echo
   echo "📋 Next steps:"
-  echo "1. 🔒 Certificate setup will run automatically when container starts"
-  echo "   - If behind corporate proxy, ensure cert is at .devcontainer/certs/zscaler.crt"
-  echo "2. 🖥️  Open VS Code in this project directory and select 'Reopen in Container' when prompted"
-  echo "3. 🔐 Authenticate Claude Code if required"
-  echo "4. ⚙️  MCP servers are configured by category in .mcp.json:"
-  echo "   - TaskMaster: disabled by default (enable via installTaskMaster: true)"
-  echo "   - SuperClaude Core: context7, sequential-thinking (documentation & reasoning)"
-  echo "   - SuperClaude UI: magic, playwright (component generation & testing)"
-  echo "   - SuperClaude CodeOps: morphllm-fast-apply, serena (transformation & analysis)"
-  echo "   - Customize categories in devcontainer.json feature configuration"
-  echo "   - Restart Claude Code session after any MCP changes"
-  echo "5. 🚀 SuperClaude framework will be configured automatically:"
+  echo "1. 🖥️  Open VS Code in $PROJECT_PATH"
+  echo "2. 🐳 Click 'Reopen in Container' when prompted"
+  echo "3. 🔒 Certificate setup runs automatically on first start"
+  echo "   - If behind corporate proxy: place cert at .devcontainer/certs/zscaler.crt"
+  echo "4. 🔐 Authenticate Claude Code if required"
+  echo "5. ⚙️  MCP servers configured in .devcontainer/mcp-servers.json"
+  echo "   - TaskMaster: disabled (enable via installTaskMaster: true in devcontainer.json)"
+  echo "   - SuperClaude Core: context7, sequential-thinking"
+  echo "   - SuperClaude UI: magic, playwright"
+  echo "   - SuperClaude CodeOps: morphllm-fast-apply, serena"
+  echo "   - Customize categories in .devcontainer/devcontainer.json"
+  echo "   - Restart Claude Code after MCP changes"
+  echo "6. 🚀 SuperClaude framework auto-configured:"
   echo "   - 19 specialized commands (/sc:help for full list)"
-  echo "   - 9 cognitive personas (Architect, Frontend, Backend, Security, etc.)"
-  echo "   - Token optimization and git-based session checkpoints"
-  echo "   - Try: /sc:status or /sc:explain to get started"
-  echo "6. 📚 After devcontainer starts, follow prompts in docs/claude-setup-prompts.md"
+  echo "   - 9 cognitive personas (Architect, Frontend, Backend, etc.)"
+  echo "   - Token optimization & git session checkpoints"
+  echo "   - Try: /sc:status or /sc:explain"
+  echo "7. 📚 See .devcontainer/docs/claude-setup-prompts.md for detailed setup"
   echo
-  echo "🎯 Project created at: $PROJECT_PATH"
+  echo "🎯 Project location: $PROJECT_PATH"
 }
 
 # ---- Main orchestration ----

@@ -12,35 +12,83 @@ This is a Claude Code devcontainer bootstrap project that provides a bash script
 
 ## Commands
 
-### Create a new project with devcontainer support
+### Bootstrap a new project with devcontainer support
 
 ```bash
-./create.sh <project_name> [workdir]
+./create.sh <project_name>
 ```
 
-- `project_name`: Name for the new project directory
-- `workdir`: (optional) Where to place the new directory. Defaults to the current folder.
+Creates a new project directory with `.devcontainer/` setup.
+
+**Example:**
+```bash
+./create.sh my-new-app          # Creates ./my-new-app/.devcontainer/
+./create.sh /path/to/new-app    # Creates /path/to/new-app/.devcontainer/
+```
+
+### Bootstrap an existing project
+
+```bash
+cd /path/to/existing-project
+/path/to/claude-devcontainer-bootstrap/create.sh .
+```
+
+or simply:
+
+```bash
+cd /path/to/existing-project
+/path/to/claude-devcontainer-bootstrap/create.sh
+```
+
+Adds `.devcontainer/` to your existing project without touching source files.
+
+**Note:** If `.devcontainer/` already exists, you'll be prompted to back it up before overwriting.
 
 ---
 
 ## Architecture
 
+### Compact Self-Contained Structure
+
+**Everything lives in `.devcontainer/`** - no source file pollution:
+
+```
+.devcontainer/
+├── devcontainer.json           # Main configuration
+├── mcp-servers.json           # MCP server configuration
+├── .env.example               # Environment template
+├── features/                  # Local devcontainer features
+│   └── core-devtools/        # Certificate, firewall, dev tools
+├── certs/                     # SSL certificates (if corporate proxy)
+├── scripts/                   # Runtime configuration scripts
+│   ├── setup-certificates.sh
+│   ├── init-firewall.sh
+│   └── setup-superclaude.sh
+└── docs/                      # Documentation & configuration
+    ├── claude-setup-prompts.md
+    └── firewall-allowlist.txt
+```
+
+Plus: `.mcp.json` symlink at project root → `.devcontainer/mcp-servers.json` for Claude Code compatibility.
+
+### Bootstrap Process
+
 The main shell script (`create.sh`):
 
-1. Creates a new project directory structure.
-2. Populates all recommended config and docs from templates (not from cloning anthropics repo).
-3. Generates a `.devcontainer/devcontainer.json` **from a template**, referencing:
-    - The official Anthropic Claude Code container image.
-    - Modular devcontainer feature for:
-      - Core developer tools (`core-devtools` - includes certificate tools, firewall tools, and dev utilities)
-      - Node.js and VS Code extension support
-4. Generates runtime scripts for workspace-dependent configuration:
-    - Certificate installation script (`setup-certificates.sh`)
-    - Firewall initialization script (`init-firewall.sh`)
-5. Sets up a project-local `.env` based on template and populates critical env vars.
-6. Generates conditional MCP server configuration via `.mcp.json` based on feature flags (task-master-ai if enabled, SuperClaude servers if enabled).
-7. Copies documentation and setup prompts into a top-level `/docs` directory for user onboarding and security (including `firewall-allowlist.txt`, `claude-setup-prompts.md`).
-8. **Uses postCreateCommand for runtime configuration** - certificates, firewall rules, and SuperClaude framework are configured after workspace mount when capabilities are available.
+1. **Detects project mode**: New directory vs. existing project (via `.` argument or no directory).
+2. **Creates compact structure**: All configuration, docs, and scripts in `.devcontainer/`.
+3. **Generates devcontainer.json** from template, referencing:
+   - Official Anthropic Claude Code container image
+   - Local `core-devtools` feature (certificates, firewall, dev utilities)
+4. **Generates runtime scripts** for workspace-dependent configuration:
+   - Certificate installation (`setup-certificates.sh`)
+   - Firewall initialization (`init-firewall.sh`)
+   - SuperClaude framework setup (`setup-superclaude.sh`)
+5. **Creates environment template** at `.devcontainer/.env.example`.
+6. **Generates MCP server configuration** at `.devcontainer/mcp-servers.json` based on feature flags (TaskMaster, SuperClaude categories).
+7. **Copies documentation** to `.devcontainer/docs/` (setup prompts, firewall allowlist).
+8. **Creates symlink** `.mcp.json` → `.devcontainer/mcp-servers.json` for Claude Code.
+9. **Runtime configuration via postCreateCommand** - certificates, firewall, SuperClaude configured after workspace mount.
 
 ---
 
@@ -60,7 +108,7 @@ The main shell script (`create.sh`):
 
 ### Network Policy Enforcement
 
-- Outbound network rules are enforced using iptables/ipset, powered by project-specific `/docs/firewall-allowlist.txt`.
+- Outbound network rules are enforced using iptables/ipset, powered by project-specific `.devcontainer/docs/firewall-allowlist.txt`.
 - Firewall rules applied at runtime via `postCreateCommand` when container has NET_ADMIN capabilities.
 - Every domain/IP your devcontainer can reach must be declared and permitted, supporting robust security and compliance.
 - The egress allowlist is fully version-controlled and auditable in each project.
@@ -165,12 +213,13 @@ The main shell script (`create.sh`):
 
 ## Onboarding & Documentation
 
-**After creating a project:**
+**After bootstrapping:**
 
-- See `/docs/claude-setup-prompts.md` for detailed setup, tips, and post-login Claude configuration.
-- Review and adapt `/docs/firewall-allowlist.txt` for any new network egress needs your project will have.
+- See `.devcontainer/docs/claude-setup-prompts.md` for detailed setup, tips, and post-login Claude configuration.
+- Review and adapt `.devcontainer/docs/firewall-allowlist.txt` for any new network egress needs your project will have.
 - Certificate installation will happen automatically if corporate certificates are detected during bootstrap.
 - Firewall rules will be applied automatically during container startup.
+- All configuration is self-contained in `.devcontainer/` - commit it to share with team, or add to `.gitignore` for personal use.
 
 ---
 
@@ -201,50 +250,67 @@ The main shell script (`create.sh`):
 ./test-devcontainer.sh
 ```
 
-### Test project creation
+### Test new project creation
 
 ```bash
-./create.sh test-project /tmp 
+./create.sh test-project
+cd test-project
+```
+
+### Test existing project bootstrap
+
+```bash
+mkdir -p /tmp/existing-app/src
+cd /tmp/existing-app
+/path/to/create.sh .
 ```
 
 ### Verify devcontainer configuration
 
 ```bash
-cat /tmp/test-project/.devcontainer/devcontainer.json
+cat test-project/.devcontainer/devcontainer.json
 ```
 
 ### Check generated scripts
 
 ```bash
-ls /tmp/test-project/.devcontainer/scripts/
-cat /tmp/test-project/.devcontainer/scripts/setup-certificates.sh
+ls test-project/.devcontainer/scripts/
+cat test-project/.devcontainer/scripts/setup-certificates.sh
 ```
 
 ### Check MCP configuration
 
 ```bash
-cat /tmp/test-project/.mcp.json
+cat test-project/.mcp.json                              # Symlink at root
+cat test-project/.devcontainer/mcp-servers.json        # Actual config file
 ```
 
 ### Check docs and allowlist
 
 ```bash
-ls /tmp/test-project/docs/
-cat /tmp/test-project/docs/firewall-allowlist.txt
+ls test-project/.devcontainer/docs/
+cat test-project/.devcontainer/docs/firewall-allowlist.txt
+cat test-project/.devcontainer/docs/claude-setup-prompts.md
+```
+
+### Verify compact structure
+
+```bash
+tree test-project/.devcontainer/ -L 2
 ```
 
 ### Test with DevContainer CLI
 
 ```sh
-devcontainer build --workspace-folder /tmp/test-project
-devcontainer up --workspace-folder /tmp/test-project
-devcontainer exec --workspace-folder /tmp/test-project -- claude --version
+devcontainer build --workspace-folder test-project
+devcontainer up --workspace-folder test-project
+devcontainer exec --workspace-folder test-project -- claude --version
 ```
 
 ### Clean up test
 
 ```bash
-rm -rf /tmp/test-project
+rm -rf test-project /tmp/existing-app
 ```
 
 ---
@@ -274,4 +340,6 @@ This ensures certificates are installed, then firewall rules are applied, and fi
 - **Consolidated tools**: All system tools now installed via single `core-devtools` feature
 - **Added runtime configuration**: Uses `postCreateCommand` for workspace-dependent operations
 - **Template-based scripts**: Runtime scripts generated from templates during bootstrap for consistency and maintainability
+- **Compact self-contained structure**: All configuration files now in `.devcontainer/` (no docs/, .env, .mcp.json in project root)
+- **Existing project support**: Can bootstrap devcontainer in existing projects without touching source files
 - **Improved testing**: Comprehensive test suite validates entire bootstrap → build → runtime lifecycle
