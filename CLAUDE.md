@@ -50,26 +50,29 @@ Adds `.devcontainer/` to your existing project without touching source files.
 
 ### Compact Self-Contained Structure
 
-**Everything lives in `.devcontainer/`** - no source file pollution:
+**Devcontainer tooling stays self-contained** - no interference with your project files:
 
 ```
-.devcontainer/
-├── devcontainer.json           # Main configuration
-├── mcp-servers.json           # MCP server configuration
-├── .env.example               # Environment template
-├── features/                  # Local devcontainer features
-│   └── core-devtools/        # Certificate, firewall, dev tools
-├── certs/                     # SSL certificates (if corporate proxy)
-├── scripts/                   # Runtime configuration scripts
-│   ├── setup-certificates.sh
-│   ├── init-firewall.sh
-│   └── setup-superclaude.sh
-└── docs/                      # Documentation & configuration
-    ├── claude-setup-prompts.md
-    └── firewall-allowlist.txt
+project/
+├── .mcp.json                   # MCP servers (only if enabled) - required by Claude Code
+└── .devcontainer/
+    ├── devcontainer.json       # Main configuration (uses remoteEnv for tool config)
+    ├── features/               # Local devcontainer features
+    │   └── core-devtools/     # Certificate, firewall, dev tools
+    ├── certs/                  # SSL certificates (if corporate proxy)
+    ├── scripts/                # Runtime configuration scripts
+    │   ├── setup-certificates.sh
+    │   ├── init-firewall.sh
+    │   └── setup-superclaude.sh
+    └── docs/                   # Documentation & configuration
+        ├── claude-setup-prompts.md
+        └── firewall-allowlist.txt
 ```
 
-Plus: `.mcp.json` symlink at project root → `.devcontainer/mcp-servers.json` for Claude Code compatibility.
+**Key design decisions:**
+- `.mcp.json` at root: Required by Claude Code, only created if MCP servers are enabled
+- No `.env` files: Your project's `.env` files remain untouched; tool config uses `remoteEnv` in `devcontainer.json`
+- Self-contained: Everything else in `.devcontainer/` - commit to share with team or gitignore for personal use
 
 ### Bootstrap Process
 
@@ -80,15 +83,16 @@ The main shell script (`create.sh`):
 3. **Generates devcontainer.json** from template, referencing:
    - Official Anthropic Claude Code container image
    - Local `core-devtools` feature (certificates, firewall, dev utilities)
+   - Uses `remoteEnv` for tool configuration (no `.env` files needed)
 4. **Generates runtime scripts** for workspace-dependent configuration:
    - Certificate installation (`setup-certificates.sh`)
    - Firewall initialization (`init-firewall.sh`)
    - SuperClaude framework setup (`setup-superclaude.sh`)
-5. **Creates environment template** at `.devcontainer/.env.example`.
-6. **Generates MCP server configuration** at `.devcontainer/mcp-servers.json` based on feature flags (TaskMaster, SuperClaude categories).
-7. **Copies documentation** to `.devcontainer/docs/` (setup prompts, firewall allowlist).
-8. **Creates symlink** `.mcp.json` → `.devcontainer/mcp-servers.json` for Claude Code.
-9. **Runtime configuration via postCreateCommand** - certificates, firewall, SuperClaude configured after workspace mount.
+5. **Conditionally generates `.mcp.json`** at project root:
+   - Only created if MCP servers are enabled (TaskMaster or SuperClaude categories)
+   - Skipped if all MCP options disabled - keeps project root clean
+6. **Copies documentation** to `.devcontainer/docs/` (setup prompts, firewall allowlist).
+7. **Runtime configuration via postCreateCommand** - certificates, firewall, SuperClaude configured after workspace mount.
 
 ---
 
@@ -199,13 +203,13 @@ The main shell script (`create.sh`):
 ### Script Templates
 - `templates/scripts/setup-certificates.sh` - Runtime certificate installation
 - `templates/scripts/init-firewall.sh` - Runtime firewall configuration
+- `templates/scripts/setup-superclaude.sh` - SuperClaude framework setup
 
 ### Configuration Templates
-- `templates/devcontainer.json.in` - DevContainer configuration with variable substitution
-- `templates/.env.example` - Environment variables template
-- `templates/mcp-servers.json` - MCP server configuration
+- `templates/devcontainer.json.in` - DevContainer configuration with variable substitution and remoteEnv
+- `templates/mcp-servers.json` - Conditional MCP server configuration (TaskMaster, SuperClaude categories)
 
-### Documentation Templates  
+### Documentation Templates
 - `templates/claude-setup-prompts.md` - User onboarding guide
 - `templates/firewall-allowlist.txt` - Network allowlist template
 
@@ -281,8 +285,7 @@ cat test-project/.devcontainer/scripts/setup-certificates.sh
 ### Check MCP configuration
 
 ```bash
-cat test-project/.mcp.json                              # Symlink at root
-cat test-project/.devcontainer/mcp-servers.json        # Actual config file
+cat test-project/.mcp.json                     # At root (only if MCP servers enabled)
 ```
 
 ### Check docs and allowlist

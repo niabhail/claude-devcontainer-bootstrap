@@ -103,86 +103,81 @@ copy_local_features() {
 generate_mcp_config() {
   echo "⚙️ Generating MCP server configuration..."
   local template_file="$BOOTSTRAP_DIR/templates/mcp-servers.json"
-  local output_file="$DEVCONTAINER_PATH/mcp-servers.json"
-  
+  local output_file="$PROJECT_PATH/.mcp.json"
+
   # Read feature flags from generated devcontainer.json
   local devcontainer_file="$DEVCONTAINER_PATH/devcontainer.json"
   local install_taskmaster=$(jq -r '.features."./features/core-devtools".installTaskMaster // false' "$devcontainer_file")
   local superclaude_config=$(jq -r '.features."./features/core-devtools".installSuperClaude // "{\"core\":true,\"ui\":true,\"codeOps\":true}"' "$devcontainer_file")
-  
+
   # Parse SuperClaude configuration JSON
   local install_superclaude_core=$(echo "$superclaude_config" | jq -r '.core // false')
   local install_superclaude_ui=$(echo "$superclaude_config" | jq -r '.ui // false')
   local install_superclaude_codeops=$(echo "$superclaude_config" | jq -r '.codeOps // false')
-  
-  # Start with empty MCP servers object
-  echo '{"mcpServers": {}}' > "$output_file"
-  
+
   # Process template and add servers based on flags
   local temp_mcp='{"mcpServers": {}}'
-  
+  local has_servers=false
+
   if [[ "$install_taskmaster" == "true" ]]; then
     echo "  📋 Including task-master-ai MCP server"
     # Extract TaskMaster section and merge
     temp_mcp=$(echo "$temp_mcp" | jq --argjson taskmaster "$(jq '.mcpServers.__CONDITIONAL_TASKMASTER__' "$template_file")" '.mcpServers += $taskmaster')
+    has_servers=true
   fi
-  
+
   # SuperClaude category-based inclusion
   local superclaude_enabled=false
   local superclaude_servers=""
-  
+
   if [[ "$install_superclaude_core" == "true" ]]; then
     echo "  📖 Including SuperClaude Core servers (context7, sequential-thinking)"
     temp_mcp=$(echo "$temp_mcp" | jq --argjson core "$(jq '.mcpServers.__SUPERCLAUDE_CORE__' "$template_file")" '.mcpServers += $core')
     superclaude_enabled=true
+    has_servers=true
     superclaude_servers="${superclaude_servers}core "
   fi
-  
+
   if [[ "$install_superclaude_ui" == "true" ]]; then
     echo "  🎨 Including SuperClaude UI servers (magic, playwright)"
     temp_mcp=$(echo "$temp_mcp" | jq --argjson ui "$(jq '.mcpServers.__SUPERCLAUDE_UI__' "$template_file")" '.mcpServers += $ui')
     superclaude_enabled=true
+    has_servers=true
     superclaude_servers="${superclaude_servers}ui "
   fi
-  
+
   if [[ "$install_superclaude_codeops" == "true" ]]; then
     echo "  🔧 Including SuperClaude CodeOps servers (morphllm-fast-apply, serena)"
     temp_mcp=$(echo "$temp_mcp" | jq --argjson codeops "$(jq '.mcpServers.__SUPERCLAUDE_CODEOPS__' "$template_file")" '.mcpServers += $codeops')
     superclaude_enabled=true
+    has_servers=true
     superclaude_servers="${superclaude_servers}codeOps "
   fi
-  
-  # Write final configuration
-  echo "$temp_mcp" | jq '.' > "$output_file"
-  
-  if [[ "$superclaude_enabled" == "true" ]]; then
-    echo "  🚀 SuperClaude categories enabled: ${superclaude_servers}"
+
+  # Only create .mcp.json if we have at least one MCP server configured
+  if [[ "$has_servers" == "true" ]]; then
+    echo "$temp_mcp" | jq '.' > "$output_file"
+
+    if [[ "$superclaude_enabled" == "true" ]]; then
+      echo "  🚀 SuperClaude categories enabled: ${superclaude_servers}"
+    fi
+
+    echo "  ✓ Generated .mcp.json at project root"
+  else
+    echo "  ℹ️  No MCP servers configured - skipping .mcp.json creation"
+    echo "     To enable: set installTaskMaster: true or enable SuperClaude categories"
   fi
-
-  echo "  ✓ Generated .devcontainer/mcp-servers.json with appropriate MCP servers"
-
-  # Create symlink at project root for Claude Code compatibility
-  local symlink_path="$PROJECT_PATH/.mcp.json"
-  local target_path=".devcontainer/mcp-servers.json"
-
-  if [[ -L "$symlink_path" ]]; then
-    rm "$symlink_path"
-  fi
-
-  (cd "$PROJECT_PATH" && ln -s "$target_path" .mcp.json)
-  echo "  ✓ Created .mcp.json symlink → .devcontainer/mcp-servers.json"
 }
 
 # ---- Copy template files ----
 copy_template_files() {
   echo "📄 Copying configuration templates..."
 
-  # All files go into .devcontainer/ for compact structure
-  cp "$BOOTSTRAP_DIR/templates/.env.example" "$DEVCONTAINER_PATH/.env.example"
+  # Copy documentation to .devcontainer/docs/
   cp "$BOOTSTRAP_DIR/templates/claude-setup-prompts.md" "$DEVCONTAINER_PATH/docs/claude-setup-prompts.md"
   cp "$BOOTSTRAP_DIR/templates/firewall-allowlist.txt" "$DEVCONTAINER_PATH/docs/firewall-allowlist.txt"
 
-  echo "  ✓ Copied docs and config to .devcontainer/"
+  echo "  ✓ Copied docs to .devcontainer/docs/"
 
   echo "📄 Copying script templates..."
   cp "$BOOTSTRAP_DIR/templates/scripts/setup-certificates.sh" "$DEVCONTAINER_PATH/scripts/setup-certificates.sh"
@@ -240,10 +235,10 @@ display_completion_message() {
   echo
   echo "✅ DevContainer setup complete for: $PROJECT_NAME"
   echo
-  echo "📦 All configuration is self-contained in .devcontainer/"
-  echo "   - Commit .devcontainer/ to share with team (recommended)"
-  echo "   - Or add to .gitignore for personal use"
-  echo "   - .mcp.json symlink created at root for Claude Code compatibility"
+  echo "📦 Self-contained devcontainer tooling:"
+  echo "   - All configuration in .devcontainer/ (commit to share with team)"
+  echo "   - .mcp.json at root (required by Claude Code, only if MCP servers enabled)"
+  echo "   - No interference with your project's .env or other config files"
   echo
   echo "📋 Next steps:"
   echo "1. 🖥️  Open VS Code in $PROJECT_PATH"
@@ -251,18 +246,16 @@ display_completion_message() {
   echo "3. 🔒 Certificate setup runs automatically on first start"
   echo "   - If behind corporate proxy: place cert at .devcontainer/certs/zscaler.crt"
   echo "4. 🔐 Authenticate Claude Code if required"
-  echo "5. ⚙️  MCP servers configured in .devcontainer/mcp-servers.json"
-  echo "   - TaskMaster: disabled (enable via installTaskMaster: true in devcontainer.json)"
+  echo "5. ⚙️  MCP servers (if enabled, see .mcp.json at project root):"
+  echo "   - TaskMaster: disabled by default (enable: installTaskMaster: true)"
   echo "   - SuperClaude Core: context7, sequential-thinking"
   echo "   - SuperClaude UI: magic, playwright"
   echo "   - SuperClaude CodeOps: morphllm-fast-apply, serena"
-  echo "   - Customize categories in .devcontainer/devcontainer.json"
-  echo "   - Restart Claude Code after MCP changes"
-  echo "6. 🚀 SuperClaude framework auto-configured:"
-  echo "   - 19 specialized commands (/sc:help for full list)"
+  echo "   - Customize in .devcontainer/devcontainer.json feature config"
+  echo "6. 🚀 SuperClaude framework (if enabled):"
+  echo "   - 19 specialized commands (/sc:help)"
   echo "   - 9 cognitive personas (Architect, Frontend, Backend, etc.)"
   echo "   - Token optimization & git session checkpoints"
-  echo "   - Try: /sc:status or /sc:explain"
   echo "7. 📚 See .devcontainer/docs/claude-setup-prompts.md for detailed setup"
   echo
   echo "🎯 Project location: $PROJECT_PATH"
