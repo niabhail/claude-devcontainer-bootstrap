@@ -4,12 +4,12 @@
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
     "./features/core-devtools": {
-      "installTaskMaster": false,
+      "installTaskMaster": $INSTALL_TASKMASTER,
       "installDevcontainersCLI": true,
       "installGitDelta": true,
       "addLLAlias": true,
       "extraNpmPackages": "",
-      "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
+      "installSuperClaude": "$SUPERCLAUDE_CONFIG"
     }
   },
   "postCreateCommand": "bash .devcontainer/scripts/setup-certificates.sh && sudo bash .devcontainer/scripts/init-firewall.sh && bash .devcontainer/scripts/setup-superclaude.sh",

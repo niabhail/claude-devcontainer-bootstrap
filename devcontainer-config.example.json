@@ -1,0 +1,8 @@
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": true,
+    "codeOps": true
+  }
+}

@@ -12,21 +12,76 @@ This is a Claude Code devcontainer bootstrap project that provides a bash script
 
 ## Commands
 
-### Bootstrap a new project with devcontainer support
+### Bootstrap with Interactive Configuration (Default)
 
 ```bash
-./create.sh <project_name>
+./create.sh my-project
 ```
 
-Creates a new project directory with `.devcontainer/` setup.
+Prompts you to configure MCP servers interactively:
+- Enable/disable MCP servers
+- Select SuperClaude categories (Core, UI, CodeOps)
+- Enable/disable TaskMaster
 
 **Example:**
 ```bash
-./create.sh my-new-app          # Creates ./my-new-app/.devcontainer/
-./create.sh /path/to/new-app    # Creates /path/to/new-app/.devcontainer/
+./create.sh my-new-app
+
+⚙️  DevContainer Configuration
+
+Enable MCP servers? (Y/n): y
+
+Select SuperClaude categories (press Enter for defaults):
+
+  📖 Core (context7, sequential-thinking)? (Y/n):
+  🎨 UI (magic, playwright)? (Y/n): n
+  🔧 CodeOps (morphllm, serena)? (Y/n):
+
+Enable TaskMaster? (y/N): n
 ```
 
-### Bootstrap an existing project
+### Bootstrap with Configuration File
+
+```bash
+./create.sh my-project --config devcontainer-config.json
+```
+
+Use a JSON configuration file to skip interactive prompts. Perfect for:
+- Team collaboration (share config in version control)
+- Automation/CI pipelines
+- Consistent project setups
+
+**Configuration file format:**
+```json
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": false,
+    "codeOps": true
+  }
+}
+```
+
+**Example:**
+```bash
+# Create team config once
+cat > team-devcontainer.json << 'EOF'
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": true,
+    "codeOps": false
+  }
+}
+EOF
+
+# Use it for projects
+./create.sh frontend-app --config team-devcontainer.json
+```
+
+### Bootstrap an Existing Project
 
 ```bash
 cd /path/to/existing-project
@@ -40,7 +95,7 @@ cd /path/to/existing-project
 /path/to/claude-devcontainer-bootstrap/create.sh
 ```
 
-Adds `.devcontainer/` to your existing project without touching source files.
+Adds `.devcontainer/` to your existing project without touching source files. Works with both interactive and `--config` modes.
 
 **Note:** If `.devcontainer/` already exists, you'll be prompted to back it up before overwriting.
 
@@ -142,59 +197,95 @@ The main shell script (`create.sh`):
 
 ## Configuration Examples
 
-### Default Configuration (All SuperClaude categories enabled)
+Configuration is set during bootstrap via:
+1. **Interactive prompts** (default) - Answer questions during setup
+2. **Config file** (`--config`) - Use JSON file for automation/team sharing
+3. **Post-bootstrap editing** - Edit generated `.devcontainer/devcontainer.json` before building container
+
+### Example 1: Backend Developer (Config File)
+
 ```json
-"./features/core-devtools": {
-  "installTaskMaster": false,
-  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": false,
+    "codeOps": true
+  }
 }
 ```
-**Result**: Complete SuperClaude ecosystem with all MCP servers and components.
-
-### Backend Developer Focus
-```json
-"./features/core-devtools": {
-  "installTaskMaster": false,
-  "installSuperClaude": "{\"core\":true,\"ui\":false,\"codeOps\":true}"
-}
+```bash
+./create.sh backend-api --config backend-config.json
 ```
 **Result**: Documentation, reasoning, and code transformation tools (no UI components).
 
-### Frontend Developer Focus
+### Example 2: Frontend Developer (Config File)
+
 ```json
-"./features/core-devtools": {
-  "installTaskMaster": false,
-  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":false}"
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": true,
+    "codeOps": false
+  }
 }
+```
+```bash
+./create.sh react-app --config frontend-config.json
 ```
 **Result**: Documentation, reasoning, and UI development tools (no heavy code transformation).
 
-### Analysis Only
+### Example 3: Maximum Capabilities (Interactive)
+
+During bootstrap, answer:
+- Enable MCP servers? **Y**
+- Core? **Y**
+- UI? **Y**
+- CodeOps? **Y**
+- TaskMaster? **Y**
+
+**Result**: Complete ecosystem with all MCP servers and task automation.
+
+### Example 4: Minimal Setup (Config File)
+
 ```json
-"./features/core-devtools": {
-  "installTaskMaster": false,
-  "installSuperClaude": "{\"core\":true,\"ui\":false,\"codeOps\":false}"
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": false,
+    "ui": false,
+    "codeOps": false
+  }
 }
 ```
-**Result**: Just documentation and reasoning capabilities for analysis work.
-
-### TaskMaster + SuperClaude Combination
-```json
-"./features/core-devtools": {
-  "installTaskMaster": true,
-  "installSuperClaude": "{\"core\":true,\"ui\":true,\"codeOps\":true}"
-}
-```
-**Result**: Maximum capabilities with both basic task automation and complete SuperClaude ecosystem.
-
-### Minimal Setup (Everything disabled)
-```json
-"./features/core-devtools": {
-  "installTaskMaster": false,
-  "installSuperClaude": "{\"core\":false,\"ui\":false,\"codeOps\":false}"
-}
+```bash
+./create.sh minimal-project --config minimal-config.json
 ```
 **Result**: No MCP servers configured. Pure Claude Code experience.
+
+### Example 5: Team Config File
+
+Create once, share in repository:
+```bash
+# In your bootstrap repo or team shared location
+cat > .devcontainer-team-default.json << 'EOF'
+{
+  "taskmaster": false,
+  "superclaude": {
+    "core": true,
+    "ui": true,
+    "codeOps": true
+  }
+}
+EOF
+
+# Everyone uses the same config
+./create.sh new-feature --config .devcontainer-team-default.json
+```
+
+**Customization after bootstrap:**
+The generated `.devcontainer/devcontainer.json` is the source of truth and can be edited before building the container or committed to share with your team.
 
 ---
 
@@ -208,6 +299,7 @@ The main shell script (`create.sh`):
 ### Configuration Templates
 - `templates/devcontainer.json.in` - DevContainer configuration with variable substitution and remoteEnv
 - `templates/mcp-servers.json` - Conditional MCP server configuration (TaskMaster, SuperClaude categories)
+- `devcontainer-config.example.json` - Example configuration file for `--config` flag
 
 ### Documentation Templates
 - `templates/claude-setup-prompts.md` - User onboarding guide
